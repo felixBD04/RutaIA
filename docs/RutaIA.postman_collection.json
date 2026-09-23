@@ -1,0 +1,1546 @@
+{
+  "info": {
+    "_postman_id": "47fc2e10-f7e3-479f-9931-409748c8b161",
+    "name": "RutaIA - API REST",
+    "description": "Colección de pruebas de la API de RutaIA. Ejecutar completa y en orden con el Collection Runner: cada carpeta usa variables guardadas por las anteriores (estudianteId, consultaId, recomendacionId, cursoId).\n\nRequisitos: contenedores arriba, backend en ejecución, cursos indexados en Qdrant y el flujo RAG de n8n activo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Estudiantes",
+      "item": [
+        {
+          "name": "Registrar estudiante",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/estudiantes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "estudiantes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreCompleto\": \"Estudiante de Prueba\",\n  \"correo\": \"{{correoPrueba}}\",\n  \"nivelExperiencia\": \"Principiante\",\n  \"areaInteres\": \"Desarrollo web\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "RF 01. Crea un estudiante con un correo único y guarda su id para las siguientes pruebas."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('correoPrueba', `prueba${Date.now()}@rutaia.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const e = pm.response.json();",
+                  "pm.test('Devuelve id', () => pm.expect(e.id).to.be.a('number'));",
+                  "pm.test('Nivel normalizado', () => pm.expect(e.nivelExperiencia).to.eql('PRINCIPIANTE'));",
+                  "pm.collectionVariables.set('estudianteId', e.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Correo duplicado (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/estudiantes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "estudiantes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreCompleto\": \"Otro Estudiante\",\n  \"correo\": \"{{correoPrueba}}\",\n  \"nivelExperiencia\": \"Intermedio\",\n  \"areaInteres\": \"Datos\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Regla: un correo solamente puede pertenecer a un estudiante."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Mensaje de correo duplicado', () => pm.expect(pm.response.json().mensaje).to.include('correo'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Nivel inválido (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/estudiantes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "estudiantes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreCompleto\": \"Estudiante\",\n  \"correo\": \"nivel@rutaia.com\",\n  \"nivelExperiencia\": \"Experto\",\n  \"areaInteres\": \"Datos\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Campos vacíos (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/estudiantes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "estudiantes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreCompleto\": \"\",\n  \"correo\": \"no-es-correo\",\n  \"nivelExperiencia\": \"Principiante\",\n  \"areaInteres\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "const r = pm.response.json();",
+                  "pm.test('Informa errores por campo', () => pm.expect(r.errores).to.have.keys('nombreCompleto', 'correo', 'areaInteres'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar estudiantes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/estudiantes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "estudiantes"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Es una lista', () => pm.expect(pm.response.json()).to.be.an('array').that.is.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar estudiante por id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/estudiantes/{{estudianteId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "estudiantes",
+                "{{estudianteId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Estudiante inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/estudiantes/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "estudiantes",
+                "999999"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Cursos y catálogo",
+      "item": [
+        {
+          "name": "Catálogo completo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cursos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos"
+              ]
+            },
+            "description": "RF 04."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const cursos = pm.response.json();",
+                  "pm.test('Tiene al menos 20 cursos', () => pm.expect(cursos.length).to.be.at.least(20));",
+                  "pm.test('Solo cursos activos', () => cursos.forEach(c => pm.expect(c.activo).to.be.true));",
+                  "pm.test('Cada curso tiene nombre, descripción, categoría, nivel y duración', () => cursos.forEach(c => pm.expect(c).to.include.keys('nombre', 'descripcion', 'categoria', 'nivel', 'duracionHoras')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catálogo filtrado por categoría y nivel",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cursos?categoria=Desarrollo Web&nivel=Básico",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos"
+              ],
+              "query": [
+                {
+                  "key": "categoria",
+                  "value": "Desarrollo Web"
+                },
+                {
+                  "key": "nivel",
+                  "value": "Básico"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Todos cumplen el filtro', () => pm.response.json().forEach(c => { pm.expect(c.categoria).to.eql('Desarrollo Web'); pm.expect(c.nivel).to.eql('BASICO'); }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtro con nivel inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cursos?nivel=Experto",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos"
+              ],
+              "query": [
+                {
+                  "key": "nivel",
+                  "value": "Experto"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Categorías disponibles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cursos/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos",
+                "categorias"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin - listar todos los cursos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cursos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cursos"
+              ]
+            },
+            "description": "RF 03. El catálogo de carga incluye un curso inactivo de prueba."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Incluye cursos inactivos', () => pm.expect(pm.response.json().some(c => c.activo === false)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin - duración cero (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cursos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cursos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Curso inválido\",\n  \"descripcion\": \"Descripción suficientemente larga para pasar la validación mínima.\",\n  \"categoria\": \"Pruebas\",\n  \"nivel\": \"Básico\",\n  \"duracionHoras\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Regla: la duración de un curso debe ser mayor que cero."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error en duracionHoras', () => pm.expect(pm.response.json().errores).to.have.property('duracionHoras'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin - sin nombre ni descripción (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cursos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cursos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"descripcion\": \"\",\n  \"categoria\": \"Pruebas\",\n  \"nivel\": \"Básico\",\n  \"duracionHoras\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Regla: no pueden registrarse cursos sin nombre o descripción."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Errores en nombre y descripción', () => pm.expect(pm.response.json().errores).to.include.keys('nombre', 'descripcion'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin - registrar curso",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cursos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cursos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"{{nombreCursoPrueba}}\",\n  \"descripcion\": \"Curso creado por la colección de Postman para verificar el registro, la actualización y la desactivación.\",\n  \"categoria\": \"Pruebas\",\n  \"nivel\": \"Básico\",\n  \"duracionHoras\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('nombreCursoPrueba', `Curso de prueba ${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Se crea activo', () => pm.expect(c.activo).to.be.true);",
+                  "pm.collectionVariables.set('cursoId', c.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin - nombre duplicado (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cursos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cursos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"{{nombreCursoPrueba}}\",\n  \"descripcion\": \"Otra descripción suficientemente larga para pasar la validación.\",\n  \"categoria\": \"Pruebas\",\n  \"nivel\": \"Básico\",\n  \"duracionHoras\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin - actualizar curso",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cursos/{{cursoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cursos",
+                "{{cursoId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"{{nombreCursoPrueba}}\",\n  \"descripcion\": \"Descripción actualizada por la colección de Postman para comprobar la operación PUT.\",\n  \"categoria\": \"Pruebas\",\n  \"nivel\": \"Intermedio\",\n  \"duracionHoras\": 12\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json();",
+                  "pm.test('Cambios aplicados', () => { pm.expect(c.nivel).to.eql('INTERMEDIO'); pm.expect(c.duracionHoras).to.eql(12); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin - desactivar curso",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cursos/{{cursoId}}/desactivar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cursos",
+                "{{cursoId}}",
+                "desactivar"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Queda inactivo', () => pm.expect(pm.response.json().activo).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin - desactivar dos veces (409)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cursos/{{cursoId}}/desactivar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cursos",
+                "{{cursoId}}",
+                "desactivar"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Curso inactivo no aparece en el catálogo (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cursos/{{cursoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cursos",
+                "{{cursoId}}"
+              ]
+            },
+            "description": "Regla: solo los cursos activos se muestran y recomiendan."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Consultas obligatorias",
+      "item": [
+        {
+          "name": "1. Quiero aprender a crear páginas web",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Quiero aprender a crear páginas web\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Estado RESPONDIDA', () => pm.expect(c.estado).to.eql('RESPONDIDA'));",
+                  "pm.test('Tiene recomendación con texto', () => pm.expect(c.recomendacion.respuesta).to.be.a('string').and.not.empty);",
+                  "pm.test('Tiene al menos una fuente', () => pm.expect(c.recomendacion.fuentes.length).to.be.above(0));",
+                  "pm.test('Todas las fuentes superan el umbral', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.similitud).to.be.at.least(Number(pm.collectionVariables.get('umbral')))));",
+                  "pm.test('Al menos una fuente fue mencionada por el modelo', () => pm.expect(c.recomendacion.fuentes.some(f => f.mencionado)).to.be.true);",
+                  "pm.collectionVariables.set('consultaId', c.id);",
+                  "pm.collectionVariables.set('recomendacionId', c.recomendacion.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Java para Spring Boot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Necesito aprender Java para trabajar con Spring Boot\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Estado RESPONDIDA', () => pm.expect(c.estado).to.eql('RESPONDIDA'));",
+                  "pm.test('Tiene recomendación con texto', () => pm.expect(c.recomendacion.respuesta).to.be.a('string').and.not.empty);",
+                  "pm.test('Tiene al menos una fuente', () => pm.expect(c.recomendacion.fuentes.length).to.be.above(0));",
+                  "pm.test('Todas las fuentes superan el umbral', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.similitud).to.be.at.least(Number(pm.collectionVariables.get('umbral')))));",
+                  "pm.test('Al menos una fuente fue mencionada por el modelo', () => pm.expect(c.recomendacion.fuentes.some(f => f.mencionado)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Analizar datos y dashboards",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Me interesa analizar datos y construir dashboards\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Estado RESPONDIDA', () => pm.expect(c.estado).to.eql('RESPONDIDA'));",
+                  "pm.test('Tiene recomendación con texto', () => pm.expect(c.recomendacion.respuesta).to.be.a('string').and.not.empty);",
+                  "pm.test('Tiene al menos una fuente', () => pm.expect(c.recomendacion.fuentes.length).to.be.above(0));",
+                  "pm.test('Todas las fuentes superan el umbral', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.similitud).to.be.at.least(Number(pm.collectionVariables.get('umbral')))));",
+                  "pm.test('Al menos una fuente fue mencionada por el modelo', () => pm.expect(c.recomendacion.fuentes.some(f => f.mencionado)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Automatizar procesos empresariales",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Quiero automatizar procesos empresariales\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Estado RESPONDIDA', () => pm.expect(c.estado).to.eql('RESPONDIDA'));",
+                  "pm.test('Tiene recomendación con texto', () => pm.expect(c.recomendacion.respuesta).to.be.a('string').and.not.empty);",
+                  "pm.test('Tiene al menos una fuente', () => pm.expect(c.recomendacion.fuentes.length).to.be.above(0));",
+                  "pm.test('Todas las fuentes superan el umbral', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.similitud).to.be.at.least(Number(pm.collectionVariables.get('umbral')))));",
+                  "pm.test('Al menos una fuente fue mencionada por el modelo', () => pm.expect(c.recomendacion.fuentes.some(f => f.mencionado)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Trabajar con inteligencia artificial",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"¿Qué puedo estudiar para trabajar con inteligencia artificial?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Estado RESPONDIDA', () => pm.expect(c.estado).to.eql('RESPONDIDA'));",
+                  "pm.test('Tiene recomendación con texto', () => pm.expect(c.recomendacion.respuesta).to.be.a('string').and.not.empty);",
+                  "pm.test('Tiene al menos una fuente', () => pm.expect(c.recomendacion.fuentes.length).to.be.above(0));",
+                  "pm.test('Todas las fuentes superan el umbral', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.similitud).to.be.at.least(Number(pm.collectionVariables.get('umbral')))));",
+                  "pm.test('Al menos una fuente fue mencionada por el modelo', () => pm.expect(c.recomendacion.fuentes.some(f => f.mencionado)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Proteger aplicaciones web",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Quiero aprender a proteger aplicaciones web\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Estado RESPONDIDA', () => pm.expect(c.estado).to.eql('RESPONDIDA'));",
+                  "pm.test('Tiene recomendación con texto', () => pm.expect(c.recomendacion.respuesta).to.be.a('string').and.not.empty);",
+                  "pm.test('Tiene al menos una fuente', () => pm.expect(c.recomendacion.fuentes.length).to.be.above(0));",
+                  "pm.test('Todas las fuentes superan el umbral', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.similitud).to.be.at.least(Number(pm.collectionVariables.get('umbral')))));",
+                  "pm.test('Al menos una fuente fue mencionada por el modelo', () => pm.expect(c.recomendacion.fuentes.some(f => f.mencionado)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Desplegar con contenedores",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Necesito desplegar aplicaciones usando contenedores\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Estado RESPONDIDA', () => pm.expect(c.estado).to.eql('RESPONDIDA'));",
+                  "pm.test('Tiene recomendación con texto', () => pm.expect(c.recomendacion.respuesta).to.be.a('string').and.not.empty);",
+                  "pm.test('Tiene al menos una fuente', () => pm.expect(c.recomendacion.fuentes.length).to.be.above(0));",
+                  "pm.test('Todas las fuentes superan el umbral', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.similitud).to.be.at.least(Number(pm.collectionVariables.get('umbral')))));",
+                  "pm.test('Al menos una fuente fue mencionada por el modelo', () => pm.expect(c.recomendacion.fuentes.some(f => f.mencionado)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. Cocina italiana (SIN_RESULTADOS)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Quiero aprender cocina italiana\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Regla: si Qdrant no devuelve resultados relevantes, la consulta finaliza como Sin resultados."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Estado SIN_RESULTADOS', () => pm.expect(c.estado).to.eql('SIN_RESULTADOS'));",
+                  "pm.test('Sin fuentes', () => pm.expect(c.recomendacion.fuentes).to.be.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Pregunta vacía (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"   \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Regla: las preguntas vacías no se envían a n8n."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error en pregunta', () => pm.expect(pm.response.json().errores).to.have.property('pregunta'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Estudiante inexistente (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": 999999,\n  \"pregunta\": \"Quiero aprender a crear páginas web\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Regla: toda consulta debe pertenecer a un estudiante existente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Historial y calificaciones",
+      "item": [
+        {
+          "name": "Detalle de una consulta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/consultas/{{consultaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas",
+                "{{consultaId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json();",
+                  "pm.test('Incluye pregunta, estado, recomendación y fuentes', () => { pm.expect(c).to.include.keys('pregunta', 'estado', 'fechaConsulta', 'recomendacion'); pm.expect(c.recomendacion.fuentes).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Historial del estudiante",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/estudiantes/{{estudianteId}}/historial",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "estudiantes",
+                "{{estudianteId}}",
+                "historial"
+              ]
+            },
+            "description": "RF 16."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const h = pm.response.json();",
+                  "pm.test('Contiene las 8 consultas con contenido', () => pm.expect(h.length).to.be.at.least(8));",
+                  "pm.test('Ordenado de la más reciente a la más antigua', () => { for (let i = 1; i < h.length; i++) pm.expect(new Date(h[i-1].fechaConsulta) >= new Date(h[i].fechaConsulta)).to.be.true; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Calificar recomendación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/recomendaciones/{{recomendacionId}}/calificacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recomendaciones",
+                "{{recomendacionId}}",
+                "calificacion"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"puntuacion\": 5,\n  \"comentario\": \"Recomendación clara y útil\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "RF 17."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Guarda la puntuación', () => pm.expect(pm.response.json().puntuacion).to.eql(5));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Calificar dos veces (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/recomendaciones/{{recomendacionId}}/calificacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recomendaciones",
+                "{{recomendacionId}}",
+                "calificacion"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"puntuacion\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Regla: una sola calificación por recomendación."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Puntuación fuera de rango (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/recomendaciones/{{recomendacionId}}/calificacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recomendaciones",
+                "{{recomendacionId}}",
+                "calificacion"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"puntuacion\": 6\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Regla: la puntuación va de 1 a 5."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recomendación inexistente (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/recomendaciones/999999/calificacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "recomendaciones",
+                "999999",
+                "calificacion"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"puntuacion\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Estadísticas",
+      "item": [
+        {
+          "name": "Estadísticas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/estadisticas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "estadisticas"
+              ]
+            },
+            "description": "RF 18."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "const e = pm.response.json();",
+                  "pm.test('Incluye los indicadores del RF 18', () => pm.expect(e).to.include.keys('totalConsultas', 'consultasPorEstado', 'cursoMasRecomendado', 'promedioCalificacion'));",
+                  "pm.test('Cuenta consultas respondidas y sin resultados', () => { pm.expect(e.consultasPorEstado.RESPONDIDA).to.be.above(0); pm.expect(e.consultasPorEstado.SIN_RESULTADOS).to.be.above(0); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api"
+    },
+    {
+      "key": "umbral",
+      "value": "0.45"
+    },
+    {
+      "key": "estudianteId",
+      "value": ""
+    },
+    {
+      "key": "correoPrueba",
+      "value": ""
+    },
+    {
+      "key": "cursoId",
+      "value": ""
+    },
+    {
+      "key": "nombreCursoPrueba",
+      "value": ""
+    },
+    {
+      "key": "consultaId",
+      "value": ""
+    },
+    {
+      "key": "recomendacionId",
+      "value": ""
+    }
+  ]
+}
