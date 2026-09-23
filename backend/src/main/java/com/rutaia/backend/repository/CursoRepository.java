@@ -19,6 +19,8 @@ public interface CursoRepository extends JpaRepository<Curso, Long> {
 
     boolean existsByNombreIgnoreCaseAndIdNot(String nombre, Long id);
 
+    long countByActivoTrue();
+
     // --- Catalogo (RF 04): solo cursos activos, con o sin filtros ---
 
     List<Curso> findByActivoTrueOrderByNombreAsc();
