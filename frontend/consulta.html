@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RutaIA · ¿Qué quieres aprender?</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado" id="encabezado"></header>
+
+  <main id="contenido">
+    <div id="sin-estudiante" hidden>
+      <div class="alerta alerta--aviso">
+        <h2>Primero elige tu perfil</h2>
+        <p>Las recomendaciones se ajustan a tu nivel de experiencia, así que necesitamos saber quién eres.</p>
+        <div class="acciones"><a class="boton" href="index.html">Elegir o crear perfil</a></div>
+      </div>
+    </div>
+
+    <div id="zona-consulta" hidden>
+      <form id="formulario-pregunta" class="pregunta" novalidate>
+        <div class="campo">
+          <h1 id="titulo-pregunta">¿Qué quieres aprender?</h1>
+          <textarea id="pregunta" name="pregunta" maxlength="1000" aria-labelledby="titulo-pregunta"
+                    placeholder="Escribe tu necesidad con tus palabras, por ejemplo: quiero aprender a crear páginas web"></textarea>
+        </div>
+        <button type="submit" class="boton">Buscar mi ruta</button>
+
+        <p class="texto-suave" style="margin: 1.25rem 0 0;">¿No sabes por dónde empezar? Prueba con una de estas:</p>
+        <ul class="sugerencias" id="sugerencias">
+          <li><button type="button">Quiero aprender a crear páginas web</button></li>
+          <li><button type="button">Me interesa analizar datos y construir dashboards</button></li>
+          <li><button type="button">¿Qué puedo estudiar para trabajar con inteligencia artificial?</button></li>
+          <li><button type="button">Quiero aprender a proteger aplicaciones web</button></li>
+        </ul>
+      </form>
+
+      <div id="resultado" class="resultado" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <script type="module" src="js/consulta.js"></script>
+</body>
+</html>

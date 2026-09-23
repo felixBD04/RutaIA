@@ -54,6 +54,16 @@ services:
       qdrant:
         condition: service_started
 
+  # Frontend estatico (HTML, CSS y JS) servido por nginx
+  frontend:
+    image: nginx:alpine
+    container_name: rutaia-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro   # ro = solo lectura
+
 volumes:
   postgres_data:
   qdrant_data:
