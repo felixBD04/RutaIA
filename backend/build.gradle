@@ -1,0 +1,47 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.rutaia'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// API REST
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// Acceso a base de datos con JPA / Hibernate
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// Validaciones con anotaciones (@NotBlank, @Email, @Min...)
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// Documentacion Swagger (springdoc 3.x es la version para Spring Boot 4)
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
+
+	// Driver de PostgreSQL
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// Lombok: genera getters, setters y constructores
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// Pruebas
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testCompileOnly 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

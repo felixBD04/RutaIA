@@ -1,0 +1,194 @@
+{
+  "name": "RutaIA - Indexación de cursos en Qdrant",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "4f0fca72-cd93-4afc-aeed-bf2b6f2367e2",
+      "name": "Iniciar indexación",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://qdrant:6333/collections/cursos/exists",
+        "options": {}
+      },
+      "id": "f89ffe09-ddc5-4cfe-8bf4-417bbbb33352",
+      "name": "¿Existe la colección?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cb3879db-e21d-4363-a2d4-00b5716cb6ee",
+              "leftValue": "={{ $json.result.exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9904b41e-4108-401c-bc9a-a032e1e48e5b",
+      "name": "IF existe",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/cursos",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"vectors\": {\n    \"size\": 1536,\n    \"distance\": \"Cosine\"\n  }\n}",
+        "options": {}
+      },
+      "id": "96d731fb-d7ef-4839-a437-c38aa4edd07d",
+      "name": "Crear colección",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 440]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/cursos/index?wait=true",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"field_name\": \"activo\",\n  \"field_schema\": \"bool\"\n}",
+        "options": {}
+      },
+      "id": "c2a27cc1-1564-467d-95aa-3d49e275bfad",
+      "name": "Crear índice activo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 440]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, nombre, descripcion, categoria, nivel, duracion_horas, activo\nFROM cursos\nORDER BY id;",
+        "options": {}
+      },
+      "id": "34030f42-4c2b-409c-b174-1180af54decb",
+      "name": "Leer cursos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Construye el texto que se convertira en embedding.\n// Incluye nombre, categoria y nivel ademas de la descripcion,\n// para que el vector capture todo el contexto del curso.\nconst niveles = { BASICO: 'Básico', INTERMEDIO: 'Intermedio', AVANZADO: 'Avanzado' };\n\nreturn $input.all().map(item => {\n  const c = item.json;\n  const texto = `Curso: ${c.nombre}. Categoría: ${c.categoria}. Nivel: ${niveles[c.nivel] ?? c.nivel}. ${c.descripcion}`;\n  return { json: { ...c, texto } };\n});"
+      },
+      "id": "637731c3-6b43-4bac-b96d-ca1a56ae8f81",
+      "name": "Preparar texto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/embeddings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "openai/text-embedding-3-small"
+            },
+            {
+              "name": "input",
+              "value": "={{ $json.texto }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a507b671-403e-4b53-9874-ef5f7f1747f5",
+      "name": "Generar embedding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Une cada curso con su embedding (ambas listas vienen en el mismo orden)\n// y arma los puntos en el formato que espera Qdrant.\nconst cursos = $('Preparar texto').all();\nconst respuestas = $input.all();\nconst DIMENSION = 1536; // dimension de openai/text-embedding-3-small\n\nconst points = respuestas.map((respuesta, i) => {\n  const c = cursos[i].json;\n  const vector = respuesta.json.data?.[0]?.embedding;\n\n  // Validar que el proveedor devolvio un vector valido\n  if (!Array.isArray(vector) || vector.length !== DIMENSION) {\n    throw new Error(`Embedding inválido para el curso ${c.id}: se esperaban ${DIMENSION} dimensiones`);\n  }\n\n  return {\n    id: Number(c.id),          // mismo id que en PostgreSQL -> evita duplicados\n    vector,\n    payload: {\n      curso_id: Number(c.id),  // relacion con la base relacional\n      nombre: c.nombre,\n      descripcion: c.descripcion,\n      categoria: c.categoria,\n      nivel: c.nivel,\n      duracion_horas: Number(c.duracion_horas),\n      activo: c.activo === true || c.activo === 'true'\n    }\n  };\n});\n\nreturn [{ json: { points, total: points.length } }];"
+      },
+      "id": "702ac135-8c71-4cc2-bffe-83a4aded64e5",
+      "name": "Construir puntos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/cursos/points?wait=true",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ points: $json.points }) }}",
+        "options": {}
+      },
+      "id": "f33fc762-97b9-4581-a8b9-29dce7eee212",
+      "name": "Guardar en Qdrant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 300]
+    }
+  ],
+  "connections": {
+    "Iniciar indexación": {
+      "main": [[{ "node": "¿Existe la colección?", "type": "main", "index": 0 }]]
+    },
+    "¿Existe la colección?": {
+      "main": [[{ "node": "IF existe", "type": "main", "index": 0 }]]
+    },
+    "IF existe": {
+      "main": [
+        [{ "node": "Leer cursos", "type": "main", "index": 0 }],
+        [{ "node": "Crear colección", "type": "main", "index": 0 }]
+      ]
+    },
+    "Crear colección": {
+      "main": [[{ "node": "Crear índice activo", "type": "main", "index": 0 }]]
+    },
+    "Crear índice activo": {
+      "main": [[{ "node": "Leer cursos", "type": "main", "index": 0 }]]
+    },
+    "Leer cursos": {
+      "main": [[{ "node": "Preparar texto", "type": "main", "index": 0 }]]
+    },
+    "Preparar texto": {
+      "main": [[{ "node": "Generar embedding", "type": "main", "index": 0 }]]
+    },
+    "Generar embedding": {
+      "main": [[{ "node": "Construir puntos", "type": "main", "index": 0 }]]
+    },
+    "Construir puntos": {
+      "main": [[{ "node": "Guardar en Qdrant", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
