@@ -1,0 +1,262 @@
+{
+ "name": "RutaIA - Consulta RAG",
+ "nodes": [
+  {
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "rutaia-consulta",
+    "responseMode": "responseNode",
+    "options": {}
+   },
+   "id": "00bccc87-817d-4d2c-a1fe-d624e0839210",
+   "name": "Webhook consulta",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [0, 300],
+   "webhookId": "7b53bc75-ef1b-4d18-b90c-8f9f7c049197"
+  },
+  {
+   "parameters": {
+    "jsCode": "// RF 09: validar que la pregunta exista y no este vacia.\nconst body = $json.body ?? {};\nconst pregunta = typeof body.pregunta === 'string' ? body.pregunta.trim() : '';\n\nreturn [{\n  json: {\n    consultaId: body.consultaId ?? null,\n    pregunta,\n    nivelExperiencia: body.nivelExperiencia ?? 'No indicado',\n    areaInteres: body.areaInteres ?? 'No indicada',\n    valida: pregunta.length > 0\n  }\n}];"
+   },
+   "id": "798de46f-cbcd-45fd-b187-e4b41eec2da5",
+   "name": "Validar entrada",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [220, 300]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict"
+     },
+     "conditions": [
+      {
+       "id": "3d692fd0-4667-48af-8aab-8d060846c1a3",
+       "leftValue": "={{ $json.valida }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "id": "3fb8dcf7-f9c9-4424-95c5-23afcdc0f84b",
+   "name": "¿Pregunta válida?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [440, 300]
+  },
+  {
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ JSON.stringify({ consultaId: $json.consultaId, pregunta: $json.pregunta, estado: 'ERROR', respuesta: 'La pregunta no puede estar vacía', fuentes: [] }) }}",
+    "options": {
+     "responseCode": 400
+    }
+   },
+   "id": "f127db6f-262f-4d50-95fb-b5a46a31e797",
+   "name": "Responder pregunta vacía",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.1,
+   "position": [660, 500]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://openrouter.ai/api/v1/embeddings",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "sendBody": true,
+    "bodyParameters": {
+     "parameters": [
+      {
+       "name": "model",
+       "value": "openai/text-embedding-3-small"
+      },
+      {
+       "name": "input",
+       "value": "={{ $json.pregunta }}"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "id": "9267a2a0-0dfb-4e5d-9579-62381c24832f",
+   "name": "Embedding de la pregunta",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [660, 200]
+  },
+  {
+   "parameters": {
+    "jsCode": "// RF 09: comprobar que el proveedor entrego un vector valido.\nconst vector = $json.data?.[0]?.embedding;\nif (!Array.isArray(vector) || vector.length !== 1536) {\n  throw new Error('OpenRouter no devolvió un embedding válido para la pregunta');\n}\nreturn [{ json: { vector } }];"
+   },
+   "id": "b5829be3-5d00-4081-917f-283a1f0e4479",
+   "name": "Validar vector",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [880, 200]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "http://qdrant:6333/collections/cursos/points/query",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ query: $json.vector, limit: 5, with_payload: true, with_vector: false, filter: { must: [ { key: 'activo', match: { value: true } } ] } }) }}",
+    "options": {}
+   },
+   "id": "bbc175f7-911f-45eb-9aac-1ed4aa7759e4",
+   "name": "Buscar en Qdrant",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [1100, 200]
+  },
+  {
+   "parameters": {
+    "jsCode": "// RF 11: umbral minimo de similitud (score coseno de Qdrant).\n// Por debajo de este valor el curso se considera irrelevante y NO se envia al modelo.\n// Calibrado con pruebas reales (ver docs/calibracion_umbral.md):\n// relevantes >= 0.47, no relacionados <= 0.41, fuera del dominio <= 0.31.\nconst UMBRAL = 0.45;\n\nconst entrada = $('Validar entrada').first().json;\nconst puntos = $json.result?.points ?? [];\nconst niveles = { BASICO: 'Básico', INTERMEDIO: 'Intermedio', AVANZADO: 'Avanzado' };\nconst redondear = n => Math.round(n * 10000) / 10000;\n\n// Todos los candidatos con su score: sirve para calibrar el umbral y para la sustentacion\nconst candidatos = puntos.map(p => ({\n  cursoId: Number(p.payload?.curso_id ?? p.id),\n  nombre: p.payload?.nombre,\n  similitud: redondear(p.score),\n  superaUmbral: p.score >= UMBRAL\n}));\n\n// RF 10: solo cursos activos y ordenados por relevancia (Qdrant ya los devuelve ordenados)\nconst fuentes = puntos\n  .filter(p => p.score >= UMBRAL && p.payload?.activo === true)\n  .map((p, i) => ({\n    posicion: i + 1,\n    cursoId: Number(p.payload.curso_id ?? p.id),\n    nombre: p.payload.nombre,\n    descripcion: p.payload.descripcion,\n    categoria: p.payload.categoria,\n    nivel: p.payload.nivel,\n    duracionHoras: p.payload.duracion_horas,\n    similitud: redondear(p.score)\n  }));\n\n// RF 12: construccion del contexto RAG\nconst contexto = fuentes.map(f =>\n  `${f.posicion}. ${f.nombre}\\n` +\n  `   Categoría: ${f.categoria} | Nivel: ${niveles[f.nivel] ?? f.nivel} | Duración: ${f.duracionHoras} horas | Similitud: ${f.similitud}\\n` +\n  `   Descripción: ${f.descripcion}`\n).join('\\n\\n');\n\nconst systemPrompt = [\n  'Eres el asistente académico de RutaIA y recomiendas cursos de la institución a estudiantes.',\n  'Reglas estrictas:',\n  '1. Usa ÚNICAMENTE los cursos que aparecen en el CONTEXTO. No inventes cursos, temas ni datos que no estén allí.',\n  '2. Menciona cada curso con su nombre exacto, tal como aparece en el contexto.',\n  '3. Recomienda solo los cursos que realmente respondan a la necesidad; no es obligatorio mencionarlos todos.',\n  '4. Si los cursos del contexto no cubren bien la necesidad del estudiante, reconócelo con honestidad en lugar de forzar la recomendación.',\n  '5. La necesidad del estudiante es lo más importante. El nivel de experiencia sirve para sugerir por cuál curso empezar y en qué orden continuar; el área de interés es solo contexto y no debe desviar la recomendación hacia otros temas.',\n  '6. No recomiendes recursos, plataformas ni cursos externos a la institución.',\n  '7. Responde en español, con un tono cercano y claro, en máximo 180 palabras.'\n].join('\\n');\n\nconst userPrompt =\n  `Perfil del estudiante: nivel de experiencia ${entrada.nivelExperiencia}, área de interés ${entrada.areaInteres}.\\n` +\n  `Necesidad del estudiante: \"${entrada.pregunta}\"\\n\\n` +\n  `CONTEXTO (cursos recuperados, ordenados por relevancia):\\n${contexto}\\n\\n` +\n  'Escribe la recomendación para este estudiante.';\n\nreturn [{\n  json: {\n    ...entrada,\n    umbral: UMBRAL,\n    hayResultados: fuentes.length > 0,\n    fuentes,\n    candidatos,\n    systemPrompt,\n    userPrompt\n  }\n}];"
+   },
+   "id": "cf0c7f8d-6d14-4abc-bf41-d219a5682a17",
+   "name": "Aplicar umbral",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [1320, 200]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict"
+     },
+     "conditions": [
+      {
+       "id": "f472083d-c1de-437d-a413-039356890fd8",
+       "leftValue": "={{ $json.hayResultados }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "id": "72e3626d-664f-4f73-a0fc-8ad0572211fc",
+   "name": "¿Hay cursos relevantes?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [1540, 200]
+  },
+  {
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ JSON.stringify({ consultaId: $json.consultaId, pregunta: $json.pregunta, estado: 'SIN_RESULTADOS', respuesta: 'No encontramos cursos en nuestro catálogo relacionados con tu necesidad. Te invitamos a reformular tu pregunta o a explorar el catálogo completo.', fuentes: [], busqueda: { umbral: $json.umbral, candidatos: $json.candidatos } }) }}",
+    "options": {
+     "responseCode": 200
+    }
+   },
+   "id": "625599c6-5eb4-446f-b37c-075580f006b8",
+   "name": "Responder sin resultados",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.1,
+   "position": [1760, 400]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://openrouter.ai/api/v1/chat/completions",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ model: 'openai/gpt-4o-mini', temperature: 0.2, messages: [ { role: 'system', content: $json.systemPrompt }, { role: 'user', content: $json.userPrompt } ] }) }}",
+    "options": {}
+   },
+   "id": "725c4938-ab25-48e7-a94e-4a62ef7721a8",
+   "name": "Generar recomendación",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [1760, 100]
+  },
+  {
+   "parameters": {
+    "jsCode": "// RF 13: respuesta final con pregunta, recomendacion, fuentes, similitudes y estado.\nconst datos = $('Aplicar umbral').first().json;\nconst texto = $json.choices?.[0]?.message?.content?.trim();\n\nif (!texto) {\n  throw new Error('El modelo de lenguaje no devolvió una respuesta');\n}\n\nreturn [{\n  json: {\n    consultaId: datos.consultaId,\n    pregunta: datos.pregunta,\n    estado: 'RESPONDIDA',\n    respuesta: texto,\n    fuentes: datos.fuentes,\n    busqueda: { umbral: datos.umbral, candidatos: datos.candidatos }\n  }\n}];"
+   },
+   "id": "fef54eda-ff7d-419e-9811-70bbdd460b3e",
+   "name": "Armar respuesta",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [1980, 100]
+  },
+  {
+   "parameters": {
+    "respondWith": "json",
+    "responseBody": "={{ JSON.stringify($json) }}",
+    "options": {
+     "responseCode": 200
+    }
+   },
+   "id": "d87a3946-91e3-4338-836f-875bad5673c5",
+   "name": "Responder recomendación",
+   "type": "n8n-nodes-base.respondToWebhook",
+   "typeVersion": 1.1,
+   "position": [2200, 100]
+  }
+ ],
+ "connections": {
+  "Webhook consulta": {
+   "main": [[{ "node": "Validar entrada", "type": "main", "index": 0 }]]
+  },
+  "Validar entrada": {
+   "main": [[{ "node": "¿Pregunta válida?", "type": "main", "index": 0 }]]
+  },
+  "¿Pregunta válida?": {
+   "main": [
+    [{ "node": "Embedding de la pregunta", "type": "main", "index": 0 }],
+    [{ "node": "Responder pregunta vacía", "type": "main", "index": 0 }]
+   ]
+  },
+  "Embedding de la pregunta": {
+   "main": [[{ "node": "Validar vector", "type": "main", "index": 0 }]]
+  },
+  "Validar vector": {
+   "main": [[{ "node": "Buscar en Qdrant", "type": "main", "index": 0 }]]
+  },
+  "Buscar en Qdrant": {
+   "main": [[{ "node": "Aplicar umbral", "type": "main", "index": 0 }]]
+  },
+  "Aplicar umbral": {
+   "main": [[{ "node": "¿Hay cursos relevantes?", "type": "main", "index": 0 }]]
+  },
+  "¿Hay cursos relevantes?": {
+   "main": [
+    [{ "node": "Generar recomendación", "type": "main", "index": 0 }],
+    [{ "node": "Responder sin resultados", "type": "main", "index": 0 }]
+   ]
+  },
+  "Generar recomendación": {
+   "main": [[{ "node": "Armar respuesta", "type": "main", "index": 0 }]]
+  },
+  "Armar respuesta": {
+   "main": [[{ "node": "Responder recomendación", "type": "main", "index": 0 }]]
+  }
+ },
+ "pinData": {},
+ "settings": {
+  "executionOrder": "v1"
+ }
+}
