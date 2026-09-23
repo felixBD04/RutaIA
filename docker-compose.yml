@@ -1,0 +1,60 @@
+# RutaIA - Servicios de infraestructura
+# Levantar todo:   docker compose up -d
+# Ver estado:      docker compose ps
+# Apagar todo:     docker compose down
+
+services:
+
+  # Base de datos relacional: estudiantes, cursos, consultas, recomendaciones...
+  postgres:
+    image: postgres:16
+    container_name: rutaia-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Base de datos vectorial: embeddings de los cursos
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: rutaia-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # API REST + dashboard web
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  # Automatizaciones: flujo de indexacion y flujo de consulta RAG
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: rutaia-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      GENERIC_TIMEZONE: America/Bogota
+      TZ: America/Bogota
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  n8n_data:
