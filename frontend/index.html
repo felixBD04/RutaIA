@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RutaIA · Encuentra tu ruta de aprendizaje</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado" id="encabezado"></header>
+
+  <main id="contenido">
+    <section class="intro">
+      <h1>Encuentra tu ruta de aprendizaje</h1>
+      <p>Cuéntanos qué quieres aprender con tus propias palabras y te recomendamos los cursos del catálogo que mejor se ajustan a ti.</p>
+    </section>
+
+    <div class="rejilla-2">
+      <section class="panel" aria-labelledby="titulo-elegir">
+        <h2 id="titulo-elegir">Ya tengo perfil</h2>
+        <p class="texto-suave">Elige tu nombre para continuar donde lo dejaste.</p>
+        <div id="lista-estudiantes"><p class="texto-suave">Cargando estudiantes…</p></div>
+      </section>
+
+      <section class="panel" aria-labelledby="titulo-registro">
+        <h2 id="titulo-registro">Crear mi perfil</h2>
+        <form id="formulario-registro" novalidate>
+          <div class="campo">
+            <label for="nombreCompleto">Nombre completo</label>
+            <input type="text" id="nombreCompleto" name="nombreCompleto" maxlength="150" autocomplete="name" required>
+          </div>
+          <div class="campo">
+            <label for="correo">Correo electrónico</label>
+            <input type="email" id="correo" name="correo" maxlength="150" autocomplete="email" required>
+          </div>
+          <div class="campo">
+            <label for="nivelExperiencia">Nivel de experiencia</label>
+            <select id="nivelExperiencia" name="nivelExperiencia" required>
+              <option value="">Selecciona tu nivel</option>
+              <option value="PRINCIPIANTE">Principiante</option>
+              <option value="INTERMEDIO">Intermedio</option>
+              <option value="AVANZADO">Avanzado</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="areaInteres">Área de interés</label>
+            <input type="text" id="areaInteres" name="areaInteres" maxlength="100" required>
+            <span class="ayuda">Por ejemplo: desarrollo web, análisis de datos, ciberseguridad.</span>
+          </div>
+          <button type="submit" class="boton">Crear perfil</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="js/inicio.js"></script>
+</body>
+</html>

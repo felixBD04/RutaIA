@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RutaIA · Administrar cursos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado" id="encabezado"></header>
+
+  <main id="contenido">
+    <section class="intro">
+      <h1>Administrar cursos</h1>
+      <p>Crea, edita y desactiva los cursos del catálogo.</p>
+    </section>
+
+    <div class="alerta alerta--aviso" style="margin-bottom:1.5rem">
+      <h2>Sincroniza la búsqueda después de cada cambio</h2>
+      <p>Las recomendaciones usan una copia de los cursos en la base vectorial. Después de crear, editar, desactivar o activar cursos, ejecuta el flujo <strong>RutaIA - Indexación de cursos en Qdrant</strong> en n8n para que la búsqueda use los datos actualizados.</p>
+    </div>
+
+    <div class="rejilla-admin">
+      <form class="panel" id="formulario-curso" novalidate>
+        <h2 id="titulo-formulario">Nuevo curso</h2>
+        <div class="campo">
+          <label for="nombre">Nombre</label>
+          <input type="text" id="nombre" name="nombre" maxlength="150" required>
+        </div>
+        <div class="campo">
+          <label for="descripcion">Descripción</label>
+          <textarea id="descripcion" name="descripcion" rows="6" required></textarea>
+          <span class="ayuda">Mínimo 30 caracteres. Incluye qué se aprende, qué herramientas se usan y para quién es: de eso depende que la búsqueda lo encuentre.</span>
+        </div>
+        <div class="campo">
+          <label for="categoria">Categoría</label>
+          <input type="text" id="categoria" name="categoria" maxlength="80" list="categorias-existentes" required>
+          <datalist id="categorias-existentes"></datalist>
+        </div>
+        <div class="campo">
+          <label for="nivel">Nivel</label>
+          <select id="nivel" name="nivel" required>
+            <option value="">Selecciona el nivel</option>
+            <option value="BASICO">Básico</option>
+            <option value="INTERMEDIO">Intermedio</option>
+            <option value="AVANZADO">Avanzado</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="duracionHoras">Duración en horas</label>
+          <input type="number" id="duracionHoras" name="duracionHoras" min="1" step="1" required>
+        </div>
+        <div class="acciones">
+          <button type="submit" class="boton" id="guardar-curso">Crear curso</button>
+          <button type="button" class="boton boton--secundario" id="cancelar-edicion" hidden>Cancelar edición</button>
+        </div>
+      </form>
+
+      <section class="panel" aria-labelledby="titulo-listado">
+        <h2 id="titulo-listado">Cursos registrados</h2>
+        <div class="campo">
+          <label for="buscar-curso">Buscar por nombre o categoría</label>
+          <input type="text" id="buscar-curso">
+        </div>
+        <div id="tabla-cursos"><p class="texto-suave">Cargando cursos…</p></div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

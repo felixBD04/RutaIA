@@ -7,6 +7,7 @@
 --
 -- ADVERTENCIA: las sentencias DROP borran las tablas y sus datos.
 -- Sirven para poder re-ejecutar el script durante el desarrollo.
+-- En una base con datos, usa migracion_examen_nivel.sql.
 -- =====================================================================
 
 -- Se borran en orden inverso a las dependencias (primero las hijas)
@@ -74,6 +75,7 @@ CREATE TABLE consultas (
     id               BIGSERIAL    PRIMARY KEY,
     estudiante_id    BIGINT       NOT NULL,
     pregunta         TEXT         NOT NULL,
+    nivel_curso      VARCHAR(20),  -- EXAMEN: nivel solicitado como filtro (NULL = sin filtro)
     estado           VARCHAR(20)  NOT NULL DEFAULT 'PENDIENTE',
     fecha_consulta   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -82,6 +84,8 @@ CREATE TABLE consultas (
         FOREIGN KEY (estudiante_id) REFERENCES estudiantes (id),
     CONSTRAINT ck_consultas_estado
         CHECK (estado IN ('PENDIENTE', 'RESPONDIDA', 'SIN_RESULTADOS', 'ERROR')),
+    CONSTRAINT ck_consultas_nivel_curso
+        CHECK (nivel_curso IS NULL OR nivel_curso IN ('BASICO', 'INTERMEDIO', 'AVANZADO')),
     -- Regla: no se aceptan preguntas vacias
     CONSTRAINT ck_consultas_pregunta CHECK (LENGTH(TRIM(pregunta)) > 0)
 );

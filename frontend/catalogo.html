@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RutaIA · Catálogo de cursos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="encabezado" id="encabezado"></header>
+
+  <main id="contenido">
+    <section class="intro">
+      <h1>Catálogo de cursos</h1>
+      <p>Todos los cursos disponibles en la institución. Si no sabes cuál elegir, cuéntanos qué quieres aprender en <a href="consulta.html">Preguntar</a>.</p>
+    </section>
+
+    <form class="panel filtros" id="filtros" aria-label="Filtrar cursos" onsubmit="return false">
+      <div class="campo">
+        <label for="filtro-categoria">Categoría</label>
+        <select id="filtro-categoria">
+          <option value="">Todas las categorías</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="filtro-nivel">Nivel</label>
+        <select id="filtro-nivel">
+          <option value="">Todos los niveles</option>
+          <option value="BASICO">Básico</option>
+          <option value="INTERMEDIO">Intermedio</option>
+          <option value="AVANZADO">Avanzado</option>
+        </select>
+      </div>
+      <button type="button" class="boton boton--secundario" id="limpiar-filtros">Quitar filtros</button>
+    </form>
+
+    <ul class="leyenda-niveles" aria-label="Color según el nivel del curso">
+      <li style="--color-nivel:#6CC3AE">Básico</li>
+      <li style="--color-nivel:var(--ruta)">Intermedio</li>
+      <li style="--color-nivel:var(--tinta)">Avanzado</li>
+    </ul>
+
+    <p class="texto-suave" id="contador" role="status" style="margin-top:1.5rem"></p>
+    <div id="resultados"></div>
+  </main>
+
+  <script type="module" src="js/catalogo.js"></script>
+</body>
+</html>
