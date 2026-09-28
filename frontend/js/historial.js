@@ -71,6 +71,7 @@ function pintarConsulta(consulta) {
         <span class="estado estado--${consulta.estado}">${ui.ESTADOS[consulta.estado] ?? consulta.estado}</span>
       </div>
       <p class="historial-item__pregunta">${ui.escaparHtml(consulta.pregunta)}</p>
+      ${consulta.nivelCurso ? `<p class="texto-suave">Filtrada por nivel ${ui.NIVELES_CURSO[consulta.nivelCurso]}</p>` : ''}
       ${detalle}
       <div class="historial-item__pie">
         ${calificacion}

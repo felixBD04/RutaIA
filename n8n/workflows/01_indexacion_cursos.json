@@ -7,7 +7,10 @@
       "name": "Iniciar indexación",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [0, 300]
+      "position": [
+        0,
+        300
+      ]
     },
     {
       "parameters": {
@@ -18,7 +21,10 @@
       "name": "¿Existe la colección?",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [220, 300]
+      "position": [
+        220,
+        300
+      ]
     },
     {
       "parameters": {
@@ -48,7 +54,10 @@
       "name": "IF existe",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [440, 300]
+      "position": [
+        440,
+        300
+      ]
     },
     {
       "parameters": {
@@ -63,7 +72,10 @@
       "name": "Crear colección",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [660, 440]
+      "position": [
+        660,
+        440
+      ]
     },
     {
       "parameters": {
@@ -78,7 +90,10 @@
       "name": "Crear índice activo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [880, 440]
+      "position": [
+        880,
+        440
+      ]
     },
     {
       "parameters": {
@@ -90,7 +105,10 @@
       "name": "Leer cursos",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1100, 300]
+      "position": [
+        1100,
+        300
+      ]
     },
     {
       "parameters": {
@@ -100,7 +118,10 @@
       "name": "Preparar texto",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 300]
+      "position": [
+        1320,
+        300
+      ]
     },
     {
       "parameters": {
@@ -127,7 +148,10 @@
       "name": "Generar embedding",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1540, 300]
+      "position": [
+        1540,
+        300
+      ]
     },
     {
       "parameters": {
@@ -137,7 +161,10 @@
       "name": "Construir puntos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1760, 300]
+      "position": [
+        1760,
+        300
+      ]
     },
     {
       "parameters": {
@@ -152,39 +179,147 @@
       "name": "Guardar en Qdrant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1980, 300]
+      "position": [
+        1980,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/cursos/index?wait=true",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"field_name\": \"nivel\",\n  \"field_schema\": \"keyword\"\n}",
+        "options": {}
+      },
+      "id": "688a9891-6f86-4a04-87d0-2a7bc3237f71",
+      "name": "Crear índice nivel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        580
+      ]
     }
   ],
   "connections": {
     "Iniciar indexación": {
-      "main": [[{ "node": "¿Existe la colección?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "¿Existe la colección?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "¿Existe la colección?": {
-      "main": [[{ "node": "IF existe", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "IF existe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "IF existe": {
       "main": [
-        [{ "node": "Leer cursos", "type": "main", "index": 0 }],
-        [{ "node": "Crear colección", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Leer cursos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Crear colección",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Crear colección": {
-      "main": [[{ "node": "Crear índice activo", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Crear índice activo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Crear índice activo": {
-      "main": [[{ "node": "Leer cursos", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Crear índice nivel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Leer cursos": {
-      "main": [[{ "node": "Preparar texto", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Preparar texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Preparar texto": {
-      "main": [[{ "node": "Generar embedding", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Generar embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Generar embedding": {
-      "main": [[{ "node": "Construir puntos", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Construir puntos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Construir puntos": {
-      "main": [[{ "node": "Guardar en Qdrant", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Guardar en Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear índice nivel": {
+      "main": [
+        [
+          {
+            "node": "Leer cursos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},

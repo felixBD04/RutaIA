@@ -1507,6 +1507,194 @@
           ]
         }
       ]
+    },
+    {
+      "name": "6. Examen - Filtro semántico por nivel",
+      "item": [
+        {
+          "name": "Escenario: crear APIs, nivel Intermedio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Estado RESPONDIDA', () => pm.expect(c.estado).to.eql('RESPONDIDA'));",
+                  "pm.test('Registra el nivel solicitado', () => pm.expect(c.nivelCurso).to.eql('INTERMEDIO'));",
+                  "pm.test('TODAS las fuentes son de nivel INTERMEDIO', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.nivel).to.eql('INTERMEDIO')));",
+                  "pm.test('Fuentes ordenadas por similitud (mayor a menor)', () => { const s = c.recomendacion.fuentes.map(f => f.similitud); for (let i = 1; i < s.length; i++) pm.expect(s[i-1]).to.be.at.least(s[i]); });",
+                  "pm.test('Cada fuente devuelve su similitud', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.similitud).to.be.a('number')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Quiero aprender a crear APIs\",\n  \"nivelCurso\": \"Intermedio\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "description": "Escenario del examen. El filtro por nivel se aplica dentro de la búsqueda vectorial en Qdrant."
+          }
+        },
+        {
+          "name": "Misma pregunta sin nivel (sin filtro)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Sin nivel registrado', () => pm.expect(c.nivelCurso).to.be.null);",
+                  "pm.test('Estado RESPONDIDA', () => pm.expect(c.estado).to.eql('RESPONDIDA'));",
+                  "pm.test('Fuentes ordenadas por similitud (mayor a menor)', () => { const s = c.recomendacion.fuentes.map(f => f.similitud); for (let i = 1; i < s.length; i++) pm.expect(s[i-1]).to.be.at.least(s[i]); });",
+                  "pm.test('Cada fuente devuelve su similitud', () => c.recomendacion.fuentes.forEach(f => pm.expect(f.similitud).to.be.a('number')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Quiero aprender a crear APIs\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "description": "Si no se envía nivel, la búsqueda funciona sin filtro."
+          }
+        },
+        {
+          "name": "Nivel con tilde y minúsculas (básico)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const c = pm.response.json();",
+                  "pm.test('Nivel normalizado a BASICO', () => pm.expect(c.nivelCurso).to.eql('BASICO'));",
+                  "pm.test('Si hay fuentes, todas son de nivel BASICO', () => (c.recomendacion?.fuentes ?? []).forEach(f => pm.expect(f.nivel).to.eql('BASICO')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Quiero aprender a crear páginas web\",\n  \"nivelCurso\": \"básico\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "description": "El nivel se acepta sin importar tildes ni mayúsculas."
+          }
+        },
+        {
+          "name": "Nivel inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Explica los niveles permitidos', () => pm.expect(pm.response.json().mensaje).to.include('Intermedio'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estudianteId\": {{estudianteId}},\n  \"pregunta\": \"Quiero aprender a crear APIs\",\n  \"nivelCurso\": \"Experto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "consultas"
+              ]
+            },
+            "description": "Un nivel inexistente se rechaza antes de crear la consulta."
+          }
+        }
+      ]
     }
   ],
   "variable": [

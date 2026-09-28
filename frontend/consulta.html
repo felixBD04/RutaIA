@@ -29,14 +29,27 @@
           <textarea id="pregunta" name="pregunta" maxlength="1000" aria-labelledby="titulo-pregunta"
                     placeholder="Escribe tu necesidad con tus palabras, por ejemplo: quiero aprender a crear páginas web"></textarea>
         </div>
+
+        <!-- EXAMEN: nivel opcional, se aplica como filtro dentro de la busqueda vectorial -->
+        <div class="campo" style="max-width: 340px">
+          <label for="nivelCurso">Nivel del curso (opcional)</label>
+          <select id="nivelCurso" name="nivelCurso">
+            <option value="">Cualquier nivel</option>
+            <option value="BASICO">Básico</option>
+            <option value="INTERMEDIO">Intermedio</option>
+            <option value="AVANZADO">Avanzado</option>
+          </select>
+          <span class="ayuda">Si eliges un nivel, solo se buscarán cursos de ese nivel.</span>
+        </div>
+
         <button type="submit" class="boton">Buscar mi ruta</button>
 
         <p class="texto-suave" style="margin: 1.25rem 0 0;">¿No sabes por dónde empezar? Prueba con una de estas:</p>
         <ul class="sugerencias" id="sugerencias">
+          <li><button type="button">Quiero aprender a crear APIs</button></li>
           <li><button type="button">Quiero aprender a crear páginas web</button></li>
           <li><button type="button">Me interesa analizar datos y construir dashboards</button></li>
           <li><button type="button">¿Qué puedo estudiar para trabajar con inteligencia artificial?</button></li>
-          <li><button type="button">Quiero aprender a proteger aplicaciones web</button></li>
         </ul>
       </form>
 

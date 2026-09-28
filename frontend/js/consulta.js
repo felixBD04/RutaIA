@@ -6,6 +6,7 @@ ui.pintarEncabezado('consulta');
 const estudiante = ui.obtenerEstudianteActivo();
 const formulario = document.getElementById('formulario-pregunta');
 const campoPregunta = document.getElementById('pregunta');
+const campoNivel = document.getElementById('nivelCurso'); // EXAMEN: filtro opcional por nivel
 const resultado = document.getElementById('resultado');
 
 // Tiempos de espera: el flujo RAG puede tardar varios segundos
@@ -33,7 +34,7 @@ function iniciar() {
 
   formulario.addEventListener('submit', (evento) => {
     evento.preventDefault();
-    enviarPregunta(campoPregunta.value);
+    enviarPregunta(campoPregunta.value, campoNivel.value);
   });
 
   // Si la URL trae ?id=5, se muestra esa consulta (se usa desde el historial)
@@ -45,7 +46,7 @@ function iniciar() {
 
 // ----------------------------------- Consultar -----------------------------------
 
-async function enviarPregunta(texto) {
+async function enviarPregunta(texto, nivel = '') {
   const pregunta = texto.trim();
   ui.limpiarErroresFormulario(formulario);
   if (!pregunta) {
@@ -59,7 +60,8 @@ async function enviarPregunta(texto) {
   const detenerEspera = mostrarEspera();
 
   try {
-    const consulta = await api.consultas.crear({ estudianteId: estudiante.id, pregunta });
+    // EXAMEN: si no se elige nivel se envia null y la busqueda funciona sin filtro
+    const consulta = await api.consultas.crear({ estudianteId: estudiante.id, pregunta, nivelCurso: nivel || null });
     pintarResultado(consulta);
   } catch (error) {
     pintarErrorPeticion(error);
@@ -74,6 +76,7 @@ async function cargarConsultaExistente(id) {
   try {
     const consulta = await api.consultas.detalle(id);
     campoPregunta.value = consulta.pregunta;
+    campoNivel.value = consulta.nivelCurso ?? '';
     pintarResultado(consulta);
   } catch (error) {
     pintarErrorPeticion(error);
@@ -133,6 +136,7 @@ function pintarRecomendacion(consulta) {
     <div class="resultado__rejilla">
       <section class="panel" aria-labelledby="titulo-ruta">
         <h2 id="titulo-ruta">Tu ruta sugerida</h2>
+        ${pintarNotaNivel(consulta)}
         <ol class="ruta">
           ${paradas.map((f, i) => pintarParada(f, i, paradas.length)).join('')}
         </ol>
@@ -181,8 +185,11 @@ function pintarSinResultados(consulta) {
   resultado.innerHTML = `
     <div class="alerta alerta--aviso">
       <h2>No encontramos cursos para esta necesidad</h2>
+      ${pintarNotaNivel(consulta)}
       <p>${ui.escaparHtml(consulta.recomendacion?.respuesta ?? 'Ningún curso del catálogo se relaciona lo suficiente con tu pregunta.')}</p>
-      <p>Prueba describiéndola de otra forma, o revisa el catálogo completo para ver qué áreas cubrimos.</p>
+      <p>${consulta.nivelCurso
+        ? 'Prueba con otro nivel, busca en todos los niveles o describe tu necesidad de otra forma.'
+        : 'Prueba describiéndola de otra forma, o revisa el catálogo completo para ver qué áreas cubrimos.'}</p>
       <div class="acciones">
         <button type="button" class="boton" id="otra-pregunta">Hacer otra pregunta</button>
         <a class="boton boton--secundario" href="catalogo.html">Ver el catálogo</a>
@@ -208,7 +215,7 @@ function pintarErrorConsulta(consulta) {
         <button type="button" class="boton" id="reintentar">Intentar de nuevo</button>
       </div>
     </div>`;
-  document.getElementById('reintentar').addEventListener('click', () => enviarPregunta(consulta.pregunta));
+  document.getElementById('reintentar').addEventListener('click', () => enviarPregunta(consulta.pregunta, consulta.nivelCurso ?? ''));
 }
 
 function pintarErrorPeticion(error) {
@@ -295,6 +302,13 @@ function pintarCalificacion(recomendacion) {
 }
 
 // ---------------------------------- Auxiliares ----------------------------------
+
+// EXAMEN: indica si la busqueda en Qdrant se filtro por nivel
+function pintarNotaNivel(consulta) {
+  return consulta.nivelCurso
+    ? `<p class="texto-suave">Búsqueda filtrada por nivel <strong>${ui.NIVELES_CURSO[consulta.nivelCurso]}</strong>.</p>`
+    : '<p class="texto-suave">Búsqueda en todos los niveles.</p>';
+}
 
 function normalizar(texto) {
   return String(texto ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
